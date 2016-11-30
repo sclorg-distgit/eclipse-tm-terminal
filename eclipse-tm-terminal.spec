@@ -2,11 +2,11 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 2
+%global baserelease 3
 
 # Set to 1 to build for the first time.  There is a cyclical
 # dependency between eclipse-remote and eclipse-tm-terminal.
-%global _bootstrap 1
+%global _bootstrap 0
 %global git_tag 4.1_neon
 
 Name:           %{?scl_prefix}eclipse-tm-terminal
@@ -95,6 +95,9 @@ set -e -x
 %files -f .mfiles
 
 %changelog
+* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1.3
+- Perform a full non-bootstrap build
+
 * Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1.2
 - Perform a bootstrap build
 
