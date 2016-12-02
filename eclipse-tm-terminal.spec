@@ -2,17 +2,18 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 3
+%global baserelease 1
 
 # Set to 1 to build for the first time.  There is a cyclical
 # dependency between eclipse-remote and eclipse-tm-terminal.
 %global _bootstrap 0
+
 %global git_tag 4.1_neon
 
 Name:           %{?scl_prefix}eclipse-tm-terminal
 Version:        4.1.0
-Release:        1.%{baserelease}%{?dist}
-Summary:        Terminal plugin for Eclipse
+Release:        3.%{baserelease}%{?dist}
+Summary:        Terminal plug-in for Eclipse
 
 License:        EPL
 URL:            https://www.eclipse.org/tm/
@@ -22,59 +23,86 @@ BuildArch:      noarch
 BuildRequires:  %{?scl_prefix_maven}maven-local
 BuildRequires:  %{?scl_prefix}tycho-extras
 BuildRequires:  %{?scl_prefix}eclipse-license
-BuildRequires:  %{?scl_prefix}eclipse-cdt
 BuildRequires: 	%{?scl_prefix}eclipse-egit
 %if ! %{_bootstrap}
+# Needed for additional terminal connectors
+BuildRequires:  %{?scl_prefix}eclipse-cdt
 BuildRequires:  %{?scl_prefix}eclipse-rse
 BuildRequires:  %{?scl_prefix}eclipse-remote
 %endif
 
 %description
-An integrated Eclipse View for the local command prompt (console) or 
+An integrated Eclipse View for the local command prompt (console) or
 remote hosts (SSH, Telnet, Serial).
+
+%if ! %{_bootstrap}
+
+%package connectors
+Summary:        Additional connectors for Terminal plug-in for Eclipse
+
+%description connectors
+An integrated Eclipse View for the local command prompt (console) or
+remote hosts (SSH, Telnet, Serial).
+%endif
+
+%package sdk
+Summary:        Terminal SDK plug-in for Eclipse
+Requires:       %{name} = %{version}-%{release}
+%if ! %{_bootstrap}
+Requires:       %{name}-connectors = %{version}-%{release}
+%endif
+
+%description sdk
+Sources and developer resources for the Terminal plug-in for Eclipse.
 
 %prep
 %{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
 set -e -x
 %setup -q -n org.eclipse.tm.terminal-%{git_tag}
 
-# When bootstrapping, remote terminal.connector.remote plugins and features
-# which require eclipse-remote and create cyclical dependency
+# Don't need to build repo
+%pom_disable_module repos/org.eclipse.tm.terminal.repo
+
+# When bootstrapping, disable the plugins and features that
+# create cyclical dependencies
 %if %{_bootstrap}
+%pom_disable_module plugins/org.eclipse.tm.terminal.connector.process
+%pom_disable_module plugins/org.eclipse.tm.terminal.connector.local
+%pom_disable_module features/org.eclipse.tm.terminal.connector.local.feature
+%pom_disable_module features/org.eclipse.tm.terminal.connector.local.sdk.feature
 %pom_disable_module plugins/org.eclipse.tm.terminal.connector.remote
 %pom_disable_module features/org.eclipse.tm.terminal.connector.remote.feature
 %pom_disable_module features/org.eclipse.tm.terminal.connector.remote.sdk.feature
 %pom_disable_module plugins/org.eclipse.tm.terminal.view.ui.rse
 %pom_disable_module features/org.eclipse.tm.terminal.view.rse.feature
 %pom_disable_module features/org.eclipse.tm.terminal.view.rse.sdk.feature
+%pom_xpath_remove "import[@feature='org.eclipse.tm.terminal.connector.local.feature']" \
+  features/org.eclipse.tm.terminal.feature/feature.xml
+%pom_xpath_remove "import[@feature='org.eclipse.tm.terminal.connector.local.sdk.feature']" \
+  features/org.eclipse.tm.terminal.sdk.feature/feature.xml
 %endif
 
 #drop due to gnu.io dep not available
 %pom_disable_module plugins/org.eclipse.tm.terminal.connector.serial
 %pom_disable_module features/org.eclipse.tm.terminal.connector.serial.feature
 %pom_disable_module features/org.eclipse.tm.terminal.connector.serial.sdk.feature
-sed -i -e 's|<import feature="org.eclipse.tm.terminal.connector.serial.feature" version="4.1.0" match="greaterOrEqual"/>||g' features/org.eclipse.tm.terminal.feature/feature.xml
-sed -i -e 's|<import feature="org.eclipse.tm.terminal.connector.serial.sdk.feature" version="4.1.0" match="greaterOrEqual"/>||g' features/org.eclipse.tm.terminal.sdk.feature/feature.xml
-%pom_disable_module repos/org.eclipse.tm.terminal.repo
+%pom_xpath_remove "import[@feature='org.eclipse.tm.terminal.connector.serial.feature']" \
+  features/org.eclipse.tm.terminal.feature/feature.xml
+%pom_xpath_remove "import[@feature='org.eclipse.tm.terminal.connector.serial.sdk.feature']" \
+  features/org.eclipse.tm.terminal.sdk.feature/feature.xml
 
 %pom_xpath_remove "pom:plugin[pom:artifactId[text()='tycho-packaging-plugin']]/pom:configuration" admin/pom-config.xml
 
 sed -i -e "s|feature.properties,\\\|feature.properties|g" features/org.eclipse.tm.terminal.view.feature/build.properties
 sed -i -e "s|p2.inf||g" features/org.eclipse.tm.terminal.view.feature/build.properties
-timestamp=`date +%Y%m%d%H%M`
-for b in `find -name MANIFEST.MF`; do
-	sed -i -e "s|qualifier|$timestamp|g" $b
-done
-for b in `find -name feature.xml`; do
-	sed -i -e "s|4.1.0.qualifier|4.1.0.$timestamp|g" $b
-done
-for b in `find -name pom.xml` admin/pom-build.xml admin/pom-config.xml; do
-	sed -i -e "s|qualifier|$timestamp|g" $b
-    sed -i -e "s|-SNAPSHOT|.$timestamp|g" $b
-done
 
 # No need to install poms
 %mvn_package "::pom::" __noinstall
+%mvn_package "::jar:sources:" sdk
+%mvn_package ":*.sdk.feature" sdk
+%mvn_package ":org.eclipse.tm.terminal.connector.{local,process,remote}*" connectors
+%mvn_package ":org.eclipse.tm.terminal.view.{rse,ui.rse}*" connectors
+%mvn_package ":"
 %{?scl:EOF}
 
 
@@ -94,15 +122,24 @@ set -e -x
 
 %files -f .mfiles
 
+%if ! %{_bootstrap}
+
+%files connectors -f .mfiles-connectors
+%endif
+
+%files sdk -f .mfiles-sdk
+
 %changelog
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1.3
-- Perform a full non-bootstrap build
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1.2
-- Perform a bootstrap build
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1.1
+* Fri Aug 12 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-3.1
 - Auto SCL-ise package for rh-eclipse46 collection
+
+* Fri Aug 12 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-3
+- Split out remote connecter, which requires CDT via PTP Remote
+
+* Fri Aug 12 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-2
+- Improve bootstrapping mode
+- Split out local connecter, which requires CDT
+- Add a SDK package for source bundles
 
 * Fri Jul 01 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-1
 - Update to Neon release
