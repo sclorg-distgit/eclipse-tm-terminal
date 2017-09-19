@@ -8,11 +8,11 @@
 # dependency between eclipse-remote and eclipse-tm-terminal.
 %global _bootstrap 0
 
-%global git_tag 4.1_neon
+%global git_tag 4.2_neon.2
 
 Name:           %{?scl_prefix}eclipse-tm-terminal
-Version:        4.1.0
-Release:        3.%{baserelease}%{?dist}
+Version:        4.2.0
+Release:        1.%{baserelease}%{?dist}
 Summary:        Terminal plug-in for Eclipse
 
 License:        EPL
@@ -56,7 +56,7 @@ Requires:       %{name}-connectors = %{version}-%{release}
 Sources and developer resources for the Terminal plug-in for Eclipse.
 
 %prep
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 %setup -q -n org.eclipse.tm.terminal-%{git_tag}
 
@@ -103,21 +103,21 @@ sed -i -e "s|p2.inf||g" features/org.eclipse.tm.terminal.view.feature/build.prop
 %mvn_package ":org.eclipse.tm.terminal.connector.{local,process,remote}*" connectors
 %mvn_package ":org.eclipse.tm.terminal.view.{rse,ui.rse}*" connectors
 %mvn_package ":"
-%{?scl:EOF}
+%{?scl:EOFSCL}
 
 
 %build
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 %mvn_build -j
-%{?scl:EOF}
+%{?scl:EOFSCL}
 
 
 %install
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 %mvn_install
-%{?scl:EOF}
+%{?scl:EOFSCL}
 
 
 %files -f .mfiles
@@ -130,8 +130,14 @@ set -e -x
 %files sdk -f .mfiles-sdk
 
 %changelog
-* Fri Aug 12 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-3.1
+* Fri Mar 31 2017 Mat Booth <mat.booth@redhat.com> - 4.2.0-1.1
 - Auto SCL-ise package for rh-eclipse46 collection
+
+* Wed Mar 29 2017 Mat Booth <mat.booth@redhat.com> - 4.2.0-1
+- Update to latest upstream release
+
+* Fri Feb 10 2017 Fedora Release Engineering <releng@fedoraproject.org> - 4.1.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
 
 * Fri Aug 12 2016 Mat Booth <mat.booth@redhat.com> - 4.1.0-3
 - Split out remote connecter, which requires CDT via PTP Remote
